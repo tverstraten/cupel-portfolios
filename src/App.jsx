@@ -9,9 +9,9 @@ import { makeApi } from "./lib/api.js";
 import { exportBook, fitToPools, fromPool, importBook, newBook, poolKey, poolTotals, setHolding, toPool } from "./lib/book.js";
 import { openInBrowser } from "./lib/browser.js";
 import { startCore } from "./lib/core.js";
-import { releaseFromFolder } from "./lib/flatfile.js";
+import { openFolderSource } from "./lib/foldersource.js";
 import { API, OPTIMIZER, SITE } from "./lib/flags.js";
-import { checkManifest, inHand, readParts, update } from "./lib/release.js";
+import { inHand, readParts, update } from "./lib/release.js";
 import { inTauri, openStore } from "./lib/store.js";
 import { LANGUAGES, formats, systemLanguage, translator } from "./lib/strings.js";
 import { Fan, Line } from "./Charts.jsx";
@@ -72,31 +72,26 @@ export default function App() {
   }, []);
 
   // Load a release from a folder the user selects: same result as a successful sync(), but no API or token needed.
+  // The store writes, readParts, core.openRelease, catalogue, and selfCheck logic live in openFolderSource
+  // (src/lib/foldersource.js) so they can be exercised in Node tests without a browser.
   const openFromFolder = useCallback(async (e) => {
     const files = e.target.files;
     e.target.value = "";
     if (!files.length) return;
     try {
-      const { manifest, parts } = await releaseFromFolder(files);
-      checkManifest(manifest);
-      const id = manifest.release_id;
-      for (const [name, bytes] of parts) {
-        await store.current.writeBytes(`releases/${id}/${name}`, bytes);
-      }
-      await store.current.writeText(`releases/${id}/manifest.json`, JSON.stringify(manifest));
-      await store.current.writeText("releases/current.json", JSON.stringify({ release_id: id, local: true }));
-      const rel = { release_id: id, manifest };
-      await openRelease(rel);
+      const { rel, catalogue, selfCheckResults } = await openFolderSource(store.current, core.current, files);
+      setCatalogue(catalogue);
+      setRelease(rel);
       setData({ status: "current", changed: true });
       const offlineProfile = { email: t("data.offline.label"), country: null, region: null, offline: true };
       await store.current.writeText("profile.json", JSON.stringify(offlineProfile));
       setProfile(offlineProfile);
-      await selfCheck(rel);
+      setCheck(selfCheckResults !== null ? { results: selfCheckResults } : { none: true });
       setTab("book");
     } catch (err) {
       setNotice(String(err.message));
     }
-  }, [openRelease, selfCheck, t]);
+  }, [t]);
 
   // The data, fetched by the app itself: nobody presses anything. The newest release is asked for with the app's
   // token, each part checked, and the one in hand replaced only when all of it has verified (src/lib/release.js).
