@@ -1,14 +1,16 @@
-// Load a release from a browser folder selection into the store and open it on the core.
-// Called by App.jsx's openFromFolder callback; also importable in Node tests (uses only web
-// APIs and store/core interfaces, no React).
+// Load a release from a browser folder selection into the store and (optionally) open it on
+// the core.  Both halves are importable in Node tests (no React, only web APIs and store/core
+// interfaces).
 //
-// Returns { rel, catalogue, selfCheckResults } where selfCheckResults is null when the
-// release contains no reference.json.
+// storeFromFolder  – fast: parse, verify, write to store.  Returns { rel, parquetParts,
+//                   selfCheckCases }.  No Python involved.
+// openFolderSource – calls storeFromFolder then opens the release on the core and fetches the
+//                   catalogue.  Used by Node tests that need the full pipeline in one call.
 
 import { checkManifest, readParts } from "./release.js";
 import { releaseFromFolder } from "./flatfile.js";
 
-export async function openFolderSource(store, core, fileList) {
+export async function storeFromFolder(store, fileList) {
   const { manifest, parts } = await releaseFromFolder(fileList);
   checkManifest(manifest);
   const id = manifest.release_id;
@@ -20,11 +22,14 @@ export async function openFolderSource(store, core, fileList) {
   const rel = { release_id: id, manifest };
   const stored = await readParts(store, rel);
   const parquetParts = new Map([...stored].filter(([k]) => k.endsWith(".parquet")));
-  core.openRelease(manifest, parquetParts);
-  const catalogue = core.call("catalogue");
   const rawRef = await store.readBytes(`releases/${id}/reference.json`);
-  const selfCheckResults = rawRef
-    ? core.call("self_check", { cases: JSON.parse(new TextDecoder().decode(rawRef)) })
-    : null;
-  return { rel, catalogue, selfCheckResults };
+  const selfCheckCases = rawRef ? JSON.parse(new TextDecoder().decode(rawRef)) : null;
+  return { rel, parquetParts, selfCheckCases };
+}
+
+export async function openFolderSource(store, core, fileList) {
+  const { rel, parquetParts, selfCheckCases } = await storeFromFolder(store, fileList);
+  await core.openRelease(rel.manifest, parquetParts);
+  const catalogue = await core.call("catalogue");
+  return { rel, catalogue, selfCheckCases };
 }

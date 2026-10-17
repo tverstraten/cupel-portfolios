@@ -9,7 +9,7 @@ import { makeApi } from "./lib/api.js";
 import { exportBook, fitToPools, fromPool, importBook, newBook, poolKey, poolTotals, setHolding, toPool } from "./lib/book.js";
 import { openInBrowser } from "./lib/browser.js";
 import { startCore } from "./lib/core.js";
-import { openFolderSource } from "./lib/foldersource.js";
+import { storeFromFolder } from "./lib/foldersource.js";
 import { API, OPTIMIZER, SITE } from "./lib/flags.js";
 import { inHand, readParts, update } from "./lib/release.js";
 import { inTauri, openStore } from "./lib/store.js";
@@ -71,23 +71,38 @@ export default function App() {
     setProfile(null);
   }, []);
 
-  // Load a release from a folder the user selects: same result as a successful sync(), but no API or token needed.
-  // The store writes, readParts, core.openRelease, catalogue, and selfCheck logic live in openFolderSource
-  // (src/lib/foldersource.js) so they can be exercised in Node tests without a browser.
+  // Load a release from a folder the user selects: same result as a successful sync(), but no
+  // API or token needed.  storeFromFolder (src/lib/foldersource.js) does the fast part: parsing
+  // files and writing them to the store.  The tab changes immediately after that.  openRelease
+  // and catalogue run as background work on the core worker (slow on a cold Pyodide), then
+  // self_check follows in its own background task.
   const openFromFolder = useCallback(async (e) => {
-    const files = e.target.files;
+    const files = [...e.target.files];  // snapshot before clearing; FileList is live, value="" empties it
     e.target.value = "";
     if (!files.length) return;
     try {
-      const { rel, catalogue, selfCheckResults } = await openFolderSource(store.current, core.current, files);
-      setCatalogue(catalogue);
-      setRelease(rel);
-      setData({ status: "current", changed: true });
+      const { rel, parquetParts, selfCheckCases } = await storeFromFolder(store.current, files);
       const offlineProfile = { email: t("data.offline.label"), country: null, region: null, offline: true };
       await store.current.writeText("profile.json", JSON.stringify(offlineProfile));
       setProfile(offlineProfile);
-      setCheck(selfCheckResults !== null ? { results: selfCheckResults } : { none: true });
       setTab("book");
+      // openRelease + catalogue run as background tasks — the UI is shown before Python starts
+      core.current.openRelease(rel.manifest, parquetParts)
+        .then(async () => {
+          const catalogue = await core.current.call("catalogue");
+          setCatalogue(catalogue);
+          setRelease(rel);
+          setData({ status: "current", changed: true });
+          if (selfCheckCases !== null) {
+            core.current.call("self_check", { cases: selfCheckCases }).then(
+              (results) => setCheck({ results }),
+              () => setCheck({ none: true })
+            );
+          } else {
+            setCheck({ none: true });
+          }
+        })
+        .catch((err) => setNotice(String(err.message)));
     } catch (err) {
       setNotice(String(err.message));
     }

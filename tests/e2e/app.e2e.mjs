@@ -339,6 +339,42 @@ test("a newer release that arrives damaged is refused, and the data in hand is k
   }
 });
 
+test("opening a data folder without signing in loads the release, shows data and passes self-check", async () => {
+  const p = await context.newPage();
+  try {
+    await p.goto(site.url);
+    await ready(p);
+
+    // Playwright's setInputFiles supports webkitdirectory inputs: passing a directory path makes
+    // it read every file recursively and set webkitRelativePath to "<dir>/<rel>" on each File,
+    // which is exactly what releaseFromFolder expects (it strips the leading folder segment).
+    // This fires the real onChange={openFromFolder} handler on App.jsx's hidden folder input.
+    await p.setInputFiles(id("folder-input"), path.join(APP, "sample"));
+
+    // storeFromFolder (the fast part) writes files and returns immediately; App.jsx then sets
+    // profile and switches to the book tab.  openRelease + catalogue run as background tasks on
+    // the core worker (can take minutes on a cold Pyodide).  If openFromFolder caught a store
+    // error it calls setNotice instead.
+    const afterLoad = await p.waitForSelector(`${id("tab-book")}, ${id("notice")}`, { timeout: 30000 });
+    const afterTestid = await afterLoad.getAttribute("data-testid");
+    if (afterTestid === "notice") {
+      throw new Error(`openFromFolder caught an error: ${await afterLoad.textContent()}`);
+    }
+
+    // Background: openRelease + catalogue complete → setRelease is called → data-state updates.
+    // Wait for the release date to appear rather than asserting immediately.
+    await p.click(id("tab-data"));
+    await p.waitForSelector(`${id("data-state")}:has-text("2025-12-31")`, { timeout: 300000 });
+    assert.match(await p.textContent(id("data-state")), /Data as of 2025-12-31/);
+
+    // Background: self_check completes after catalogue (very slow on cold Pyodide)
+    await p.waitForSelector(id("check-pass"), { timeout: 300000 });
+    assert.match(await p.textContent(id("check-pass")), /2 reference portfolios match/);
+  } finally {
+    await p.close();
+  }
+});
+
 test("nothing left the machine but the sign-in and the release", async () => {
   const outside = asked.filter((u) => !u.startsWith(site.url) && !u.startsWith("blob:") && !u.startsWith("data:"));
   assert.ok(outside.length > 0 && outside.every((u) => u.startsWith(api.url + "/api/v1/")), `asked of another address: ${outside.filter((u) => !u.startsWith(api.url))}`);

@@ -138,10 +138,12 @@ describe("openFolderSource (src/lib/foldersource.js) — API-path parity", () =>
     }
   });
 
-  it("selfCheck passes on the folder-loaded release (openFolderSource returns results)", async () => {
-    // openFolderSource reads reference.json from the store and runs core self_check internally
-    const { selfCheckResults } = await openFolderSource(memoryStore(), core, mockFileList(SAMPLE));
-    assert.ok(selfCheckResults !== null, "reference.json must produce selfCheck results");
+  it("selfCheck passes on the folder-loaded release (openFolderSource returns cases)", async () => {
+    // openFolderSource now returns selfCheckCases (the parsed reference.json) so the caller can
+    // run self_check in the background; here we run it directly as the browser's background does.
+    const { selfCheckCases } = await openFolderSource(memoryStore(), core, mockFileList(SAMPLE));
+    assert.ok(selfCheckCases !== null, "reference.json must produce selfCheck cases");
+    const selfCheckResults = core.call("self_check", { cases: selfCheckCases });
     const failed = selfCheckResults.filter((r) => !r.ok);
     assert.equal(failed.length, 0, `self_check failed: ${JSON.stringify(failed)}`);
   });
