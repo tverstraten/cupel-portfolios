@@ -78,8 +78,12 @@ export async function readParts(store, release) {
 export async function update(store, api, onProgress = () => {}) {
   const manifest = checkManifest(await api.current());
   const id = manifest.release_id;
+  // A locally-imported release (local: true in current.json) is never treated as server-verified: skip the
+  // early-return and the copy-from-previous optimisations so every part is checked against the server's SHA-256.
+  const cur = await store.readText("releases/current.json");
+  const wasLocal = cur ? JSON.parse(cur)?.local === true : false;
   const before = await inHand(store);
-  if (before && before.release_id === id) {
+  if (!wasLocal && before && before.release_id === id) {
     try {
       await readParts(store, before);
       return { ...before, changed: false };
@@ -87,7 +91,7 @@ export async function update(store, api, onProgress = () => {}) {
       // the release in hand is damaged: fetched again below, part by part
     }
   }
-  const old = new Map((before && before.release_id !== id ? before.manifest.parts : []).map((p) => [p.part, p.sha256]));
+  const old = new Map((!wasLocal && before && before.release_id !== id ? before.manifest.parts : []).map((p) => [p.part, p.sha256]));
   let done = 0, bytes = 0;
   const total = manifest.parts.length;
   for (const p of manifest.parts) {

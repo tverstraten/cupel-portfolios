@@ -84,7 +84,7 @@ export default function App() {
         await store.current.writeBytes(`releases/${id}/${name}`, bytes);
       }
       await store.current.writeText(`releases/${id}/manifest.json`, JSON.stringify(manifest));
-      await store.current.writeText("releases/current.json", JSON.stringify({ release_id: id }));
+      await store.current.writeText("releases/current.json", JSON.stringify({ release_id: id, local: true }));
       const rel = { release_id: id, manifest };
       await openRelease(rel);
       setData({ status: "current", changed: true });

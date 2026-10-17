@@ -1,22 +1,22 @@
 // Verify that releaseFromFolder() produces the same {manifest, parts} as reading
 // the sample/ directory directly — i.e. the flat-file path gives identical data
 // to what the fixture() helper (which mirrors the API download path) gives.
+// Also: open the same data via the API path and the folder path in the real pyodide
+// core and confirm both produce an identical catalogue.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 
 const APP = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SAMPLE = path.join(APP, "sample");
 
 // Load modules under test from the source tree (they use web APIs: TextDecoder, crypto — available in Node 20+)
-const { releaseFromFolder } = await import(
-  new URL("../src/lib/flatfile.js", import.meta.url).href
-);
-const { checkManifest } = await import(
-  new URL("../src/lib/release.js", import.meta.url).href
-);
+const { releaseFromFolder } = await import(new URL("../src/lib/flatfile.js", import.meta.url).href);
+const { checkManifest, update } = await import(new URL("../src/lib/release.js", import.meta.url).href);
+const { memoryStore } = await import(new URL("../src/lib/store.js", import.meta.url).href);
+const { fixture, fakeApi, startCore } = await import(new URL("./helpers.mjs", import.meta.url).href);
 
 // Build a mock FileList from a folder path so we can test the browser-API-based function
 // in Node without a full DOM. Each entry carries the three properties releaseFromFolder reads.
@@ -96,3 +96,68 @@ describe("releaseFromFolder", () => {
     );
   });
 });
+
+// Prove that API-loaded and folder-loaded releases give identical output from the core.
+// Both paths end at core.openRelease(manifest, parquetParts) — this test shows they arrive there
+// with the same manifest and the same bytes, and that the core accepts and reads both.
+describe("API path vs folder path — core output", () => {
+  let core;
+  before(async () => { core = await startCore(); });
+
+  it("catalogue from API path and folder path are identical", async () => {
+    // API path: update() writes parts to a memoryStore from the fakeApi
+    const fix = fixture();
+    const store = memoryStore();
+    const rel = await update(store, fakeApi(fix));
+    const apiParts = new Map([...fix.parts].filter(([k]) => k.endsWith(".parquet")));
+    core.openRelease(rel.manifest, apiParts);
+    const catApi = core.call("catalogue");
+
+    // Folder path: releaseFromFolder() on the same data (sample/ is a copy of core/tests/release/)
+    const fileList = mockFileList(SAMPLE);
+    const { manifest: folderManifest, parts: folderParts } = await releaseFromFolder(fileList);
+    checkManifest(folderManifest);
+    const folderParquetParts = new Map([...folderParts].filter(([k]) => k.endsWith(".parquet")));
+    core.openRelease(folderManifest, folderParquetParts);
+    const catFolder = core.call("catalogue");
+
+    // Both catalogues must list the same runs in the same order
+    assert.equal(catFolder.length, catApi.length, "catalogue length differs");
+    for (let i = 0; i < catApi.length; i++) {
+      assert.equal(catFolder[i].run_id, catApi[i].run_id, `run_id differs at index ${i}`);
+      assert.equal(catFolder[i].name,   catApi[i].name,   `name differs at index ${i}`);
+      assert.equal(catFolder[i].sleeve, catApi[i].sleeve, `sleeve differs at index ${i}`);
+      assert.ok(Math.abs(catFolder[i].cagr - catApi[i].cagr) < 1e-12, `cagr differs at index ${i}`);
+    }
+  });
+});
+
+// Prove that update() re-verifies every part against the server's SHA-256 after a local import,
+// rather than short-circuiting with the locally-stored data as if it were server-verified.
+describe("update() after a local folder import", () => {
+  it("does not short-circuit: still contacts the server and returns changed:true", async () => {
+    const fix = fixture();
+    const store = memoryStore();
+
+    // Simulate what openFromFolder does: write parts + local:true in current.json
+    const { manifest: folderManifest, parts: folderParts } = await releaseFromFolder(mockFileList(SAMPLE));
+    const id = folderManifest.release_id;
+    for (const [name, bytes] of folderParts) {
+      await store.writeBytes(`releases/${id}/${name}`, bytes);
+    }
+    await store.writeText(`releases/${id}/manifest.json`, JSON.stringify(folderManifest));
+    await store.writeText("releases/current.json", JSON.stringify({ release_id: id, local: true }));
+
+    const api = fakeApi(fix);
+    const rel = await update(store, api);
+
+    // update() must have asked the server for the current manifest (not short-circuited)
+    assert.ok(api.asked.includes("current"), "update() never asked the server for the current manifest");
+    // The parts were kept (SHA-256 matched server's list) but the release is now server-verified
+    assert.equal(rel.changed, true, "update() should return changed:true — not the early-return path");
+    // current.json must no longer carry local:true
+    const cur = JSON.parse(await store.readText("releases/current.json"));
+    assert.equal(cur.local, undefined, "local flag should be cleared after server verification");
+  });
+});
+
