@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tverstraten/cupel-portfolios/blob/master/release-schema.json",
+  "title": "Cupel Release",
+  "description": "A data release: the strategies, equity curves, rates and self-check cases that the cupel-portfolios app computes books from. Produced by cupel's server and consumed by this app either by API download or from a local folder.\n\nThe release lives on disk as a folder: manifest.json at the root, and each part at its 'part' path relative to that root. The SHA-256 of every part is listed in the manifest; the app checks every byte before reading it.\n\nA flat-file release and an API-downloaded release are the same on disk — the app cannot tell the difference.",
+  "type": "object",
+  "properties": {
+    "manifest": {
+      "$ref": "#/$defs/Manifest"
+    }
+  },
+  "$defs": {
+    "Manifest": {
+      "title": "manifest.json",
+      "description": "The root file of a release. Lists every part, its size and its SHA-256.",
+      "type": "object",
+      "required": ["format", "release_id", "as_of", "rating_method", "parts"],
+      "additionalProperties": true,
+      "properties": {
+        "format": {
+          "type": "integer",
+          "const": 1,
+          "description": "Format version. This version of the app reads format 1 only."
+        },
+        "release_id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "A positive integer that uniquely identifies this release."
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date",
+          "description": "The date through which the data is current (ISO 8601, e.g. 2025-12-31)."
+        },
+        "rating_method": {
+          "type": "string",
+          "description": "Label describing how runs were rated (e.g. 'in-sample', 'out-of-sample')."
+        },
+        "made_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this release was produced (ISO 8601)."
+        },
+        "runs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of runs in this release (informational; the real count is rows in runs.parquet)."
+        },
+        "parts": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Every file in this release. Required parts: runs.parquet, fx.parquet, margin_rate.parquet, and at least one equity/*.parquet.",
+          "items": { "$ref": "#/$defs/Part" }
+        }
+      }
+    },
+    "Part": {
+      "title": "Part entry in the manifest",
+      "type": "object",
+      "required": ["part", "sha256", "bytes"],
+      "properties": {
+        "part": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^[A-Za-z0-9_-][A-Za-z0-9._/-]*$",
+          "description": "Path of this file relative to the release root (e.g. 'runs.parquet', 'equity/0000101-0000204.parquet')."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Lowercase hex SHA-256 of the file's bytes. The app checks every part against this before reading it."
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Exact file size in bytes."
+        }
+      }
+    },
+
+    "RunsParquet": {
+      "title": "runs.parquet",
+      "description": "One row per run (strategy). Required columns are listed below; extra columns are preserved and shown in the catalogue.\n\nFile name: runs.parquet",
+      "type": "object",
+      "properties": {
+        "run_id": {
+          "type": "integer",
+          "description": "Unique run identifier (int64). Must match the run_id values in the equity files."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable run name shown in the catalogue (utf8)."
+        },
+        "sleeve": {
+          "type": "string",
+          "enum": ["CAD", "USD"],
+          "description": "The currency pool this run belongs to."
+        },
+        "cagr": {
+          "type": "number",
+          "description": "Compound annual growth rate over the full equity history (float64, e.g. 0.12 for 12%)."
+        },
+        "shorts": {
+          "type": "boolean",
+          "description": "Whether this run may be held short (bool; optional, defaults to false)."
+        },
+        "grade": {
+          "type": "string",
+          "description": "Rating letter, e.g. 'A', 'B' (utf8; optional)."
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Evidence level label shown in the catalogue (utf8; optional)."
+        }
+      },
+      "required": ["run_id", "name", "sleeve", "cagr"]
+    },
+
+    "EquityParquet": {
+      "title": "equity/<range>.parquet",
+      "description": "Daily equity curves for a contiguous range of runs. Each file name encodes the first and last run_id it contains (zero-padded to 7 digits), e.g. equity/0000101-0000204.parquet.\n\nRows are sorted by run_id then day. All runs in runs.parquet must appear in exactly one equity file.",
+      "type": "object",
+      "properties": {
+        "run_id": {
+          "type": "integer",
+          "description": "Run identifier (int64). Groups rows for the same run together."
+        },
+        "day": {
+          "type": "string",
+          "format": "date",
+          "description": "Trading day (date32 in Parquet)."
+        },
+        "equity": {
+          "type": "number",
+          "description": "Portfolio equity on this day, normalised so the first day equals 1.0 (float64)."
+        },
+        "margin": {
+          "type": "number",
+          "description": "Gross margin used on this day as a fraction of capital, or 0 if no margin (float64)."
+        }
+      },
+      "required": ["run_id", "day", "equity", "margin"]
+    },
+
+    "FxParquet": {
+      "title": "fx.parquet",
+      "description": "Daily CAD/USD exchange rates. Required for Canadian books that hold USD strategies.\n\nFile name: fx.parquet",
+      "type": "object",
+      "properties": {
+        "day": {
+          "type": "string",
+          "format": "date",
+          "description": "Trading day (date32 in Parquet)."
+        },
+        "cad_per_usd": {
+          "type": "number",
+          "description": "How many Canadian dollars one US dollar buys on this day (float64)."
+        }
+      },
+      "required": ["day", "cad_per_usd"]
+    },
+
+    "MarginRateParquet": {
+      "title": "margin_rate.parquet",
+      "description": "Monthly margin loan rates by sleeve. Required when any account uses margin.\n\nFile name: margin_rate.parquet",
+      "type": "object",
+      "properties": {
+        "month": {
+          "type": "string",
+          "format": "date",
+          "description": "First day of the month this rate applies to (date32 in Parquet)."
+        },
+        "sleeve": {
+          "type": "string",
+          "enum": ["CAD", "USD"],
+          "description": "Which sleeve's margin loan this rate is for."
+        },
+        "rate": {
+          "type": "number",
+          "description": "Annual margin loan rate in percent (float64, e.g. 7.5 for 7.5% per year)."
+        }
+      },
+      "required": ["month", "sleeve", "rate"]
+    },
+
+    "ReferenceJson": {
+      "title": "reference.json",
+      "description": "Self-check test cases published alongside the data. The app's Data screen can run these to confirm that this machine's calculation matches cupel's.\n\nFile name: reference.json (listed as a part in the manifest; optional).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "book", "expect"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Human-readable description of this test case."
+          },
+          "book": {
+            "type": "object",
+            "description": "The book input (same structure as the app's book JSON)."
+          },
+          "expect": {
+            "type": "object",
+            "description": "Expected output values. The app checks computed values against these to within floating-point rounding.",
+            "properties": {
+              "withdrawal":      { "type": "number" },
+              "withdrawal_flat": { "type": "number" },
+              "cagr":            { "type": "number" },
+              "sortino":         { "type": "number" },
+              "max_drawdown":    { "type": "number" },
+              "final":           { "type": "number" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

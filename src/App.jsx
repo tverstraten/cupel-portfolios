@@ -9,6 +9,7 @@ import { makeApi } from "./lib/api.js";
 import { exportBook, fitToPools, fromPool, importBook, newBook, poolKey, poolTotals, setHolding, toPool } from "./lib/book.js";
 import { openInBrowser } from "./lib/browser.js";
 import { startCore } from "./lib/core.js";
+import { releaseFromFolder } from "./lib/flatfile.js";
 import { API, OPTIMIZER, SITE } from "./lib/flags.js";
 import { inHand, readParts, update } from "./lib/release.js";
 import { inTauri, openStore } from "./lib/store.js";
@@ -45,6 +46,7 @@ export default function App() {
   const [notice, setNotice] = useState(null);
   const [said, setSaid] = useState([]);                  // the optimizer's progress lines
   const store = useRef(null), core = useRef(null), api = useRef(null), token = useRef(null), syncing = useRef(false);
+  const folderInput = useRef(null);
 
   const openRelease = useCallback(async (rel) => {
     const parts = await readParts(store.current, rel);
@@ -68,6 +70,32 @@ export default function App() {
     await store.current.remove("profile.json");
     setProfile(null);
   }, []);
+
+  // Load a release from a folder the user selects: same result as a successful sync(), but no API or token needed.
+  const openFromFolder = useCallback(async (e) => {
+    const files = e.target.files;
+    e.target.value = "";
+    if (!files.length) return;
+    try {
+      const { manifest, parts } = await releaseFromFolder(files);
+      const id = manifest.release_id;
+      for (const [name, bytes] of parts) {
+        await store.current.writeBytes(`releases/${id}/${name}`, bytes);
+      }
+      await store.current.writeText(`releases/${id}/manifest.json`, JSON.stringify(manifest));
+      await store.current.writeText("releases/current.json", JSON.stringify({ release_id: id }));
+      const rel = { release_id: id, manifest };
+      await openRelease(rel);
+      setData({ status: "current", changed: true });
+      const offlineProfile = { email: t("data.offline.label"), country: null, region: null, offline: true };
+      await store.current.writeText("profile.json", JSON.stringify(offlineProfile));
+      setProfile(offlineProfile);
+      await selfCheck(rel);
+      setTab("book");
+    } catch (err) {
+      setNotice(String(err.message));
+    }
+  }, [openRelease, selfCheck, t]);
 
   // The data, fetched by the app itself: nobody presses anything. The newest release is asked for with the app's
   // token, each part checked, and the one in hand replaced only when all of it has verified (src/lib/release.js).
@@ -96,7 +124,8 @@ export default function App() {
       const settings = JSON.parse((await s.readText("settings.json")) ?? "{}");
       if (settings.lang in LANGUAGES) setLang(settings.lang);
       const p = await s.readText("profile.json"), install = await s.readText("install.json");
-      if (p && install) { token.current = JSON.parse(install).install_token ?? null; if (token.current) setProfile(JSON.parse(p)); }
+      if (install) token.current = JSON.parse(install).install_token ?? null;
+      if (p) { const prof = JSON.parse(p); if (token.current || prof.offline) setProfile(prof); }
       const kept = await s.readText("books/current.json");
       if (kept) setBookState(JSON.parse(kept));
       setLoaded(true);
@@ -205,10 +234,12 @@ export default function App() {
       {notice && <p className="notice" data-testid="notice">{notice}</p>}
 
       <main>
-        {loaded && !profile && <SignIn t={t} api={api} onSignedIn={signedIn} />}
+        {loaded && !profile && <SignIn t={t} api={api} onSignedIn={signedIn}
+                                       onOpenFolder={() => folderInput.current?.click()} coreReady={coreState.status === "ready"} />}
         {profile && tab === "account" && <Account t={t} profile={profile} signOut={signOut} />}
         {profile && tab === "data" && <Data t={t} release={release} data={data} check={check} sync={sync}
-                                            selfCheck={() => selfCheck(release)} />}
+                                            selfCheck={() => selfCheck(release)} offline={profile?.offline}
+                                            onOpenFolder={() => folderInput.current?.click()} />}
         {profile && tab === "book" && <Book t={t} f={f} core={core} book={book} setBook={setBook} pools={pools} poolsError={poolsError}
                                             catalogue={catalogue} names={names} ccy={ccy} release={release} setNotice={setNotice}
                                             country={profile.country} />}
@@ -218,6 +249,7 @@ export default function App() {
                                                                  pools={pools} said={said} setSaid={setSaid} busy={busy} setBusy={setBusy} />}
       </main>
       <footer>{t("app.notAdvice")}</footer>
+      <input ref={folderInput} type="file" webkitdirectory="" hidden onChange={openFromFolder} data-testid="folder-input" />
     </div>
   );
 }
@@ -225,7 +257,7 @@ export default function App() {
 // --- Sign in (B2; Todd, 2026-10-05: "the user should have to login"). The app asks cupel for a sign-in, opens the
 // page it is given in the person's own browser, and waits: they sign in to cupel there and approve, checking the
 // code shown here against the one shown there. Nothing is typed into the app, and the app sends nothing of theirs. ---
-function SignIn({ t, api, onSignedIn }) {
+function SignIn({ t, api, onSignedIn, onOpenFolder, coreReady }) {
   const [pending, setPending] = useState(null);          // {url, check}: a sign-in waiting to be approved
   const [error, setError] = useState(null);
   const run = useRef(0);
@@ -279,6 +311,9 @@ function SignIn({ t, api, onSignedIn }) {
         </>
       )}
       {error && <p className="bad" data-testid="signin-error">{error}</p>}
+      <hr />
+      <p className="mute">{t("signin.orFile")}</p>
+      <button onClick={onOpenFolder} disabled={!coreReady} data-testid="signin-folder">{t("signin.openFolder")}</button>
     </section>
   );
 }
@@ -296,7 +331,7 @@ function Account({ t, profile, signOut }) {
 }
 
 // --- Data: what the app fetched by itself, and the self-check (B3, B8). Nothing here has to be pressed. ----------
-function Data({ t, release, data, check, sync, selfCheck }) {
+function Data({ t, release, data, check, sync, selfCheck, offline, onOpenFolder }) {
   const failed = check?.results?.find((c) => !c.ok);
   const p = data.progress;
   return (
@@ -309,7 +344,10 @@ function Data({ t, release, data, check, sync, selfCheck }) {
       {data.status === "current" && <p className="good" data-testid="data-ok">{t(data.changed ? "data.updated" : "data.upToDate")}</p>}
       {data.status === "offline" && <p className="bad" data-testid="data-bad">{t("data.offline")}</p>}
       {data.status === "refused" && <p className="bad" data-testid="data-bad">{t("data.refused", { why: data.why })}</p>}
-      <button onClick={sync} disabled={data.status === "fetching"} data-testid="data-again">{t("data.again")}</button>
+      {offline
+        ? <button onClick={onOpenFolder} data-testid="data-folder">{t("data.loadFolder")}</button>
+        : <button onClick={sync} disabled={data.status === "fetching"} data-testid="data-again">{t("data.again")}</button>
+      }
       <h2>{t("check.title")}</h2>
       <p className="mute">{t("check.intro")}</p>
       <button onClick={selfCheck} disabled={!release} data-testid="check-run">{t("check.run")}</button>
