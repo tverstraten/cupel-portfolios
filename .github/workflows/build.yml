@@ -3,68 +3,77 @@ name: Build
 on:
   push:
     branches: [master]
+    # Skip runs triggered by this workflow committing binaries back
+    paths-ignore:
+      - 'bin/**'
   workflow_dispatch:
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows-latest
-            binary: src-tauri/target/release/cupel.exe
-            artifact: cupel-windows.exe
-          - platform: macos-latest
-            binary: src-tauri/target/release/cupel
-            artifact: cupel-macos
-
-    runs-on: ${{ matrix.platform }}
-
+  build-windows:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - uses: dtolnay/rust-toolchain@stable
-
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-
-      - name: Install npm dependencies
-        run: npm install
-
-      - name: Fetch Pyodide runtime
-        run: node scripts/fetch-pyodide.mjs
-
-      - name: Build
-        run: npm run build:exe
-
+      - run: npm ci
+      - run: node scripts/fetch-pyodide.mjs
+      - run: npm run build:exe
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.binary }}
+          name: cupel-windows
+          path: src-tauri/target/release/cupel.exe
 
-  release:
-    needs: build
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: node scripts/fetch-pyodide.mjs
+      - run: npm run build:exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cupel-macos
+          path: src-tauri/target/release/cupel
+
+  commit-binaries:
+    needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
       - uses: actions/download-artifact@v4
         with:
-          path: artifacts
-          merge-multiple: true
-
-      - uses: ncipollo/release-action@v1
+          name: cupel-windows
+          path: bin
+      - uses: actions/download-artifact@v4
         with:
-          tag: latest
-          name: Latest Build
-          body: Latest build from the master branch.
-          allowUpdates: true
-          removeArtifacts: true
-          prerelease: true
-          artifacts: artifacts/*
+          name: cupel-macos
+          path: bin
+      - name: Rename binaries
+        run: |
+          mv bin/cupel.exe bin/cupel-windows.exe
+          mv bin/cupel bin/cupel-macos
+          chmod +x bin/cupel-macos
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bin/cupel-windows.exe bin/cupel-macos
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Update binaries from CI build [skip ci]"
+          git push

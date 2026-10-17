@@ -1,0 +1,2 @@
+bin/*.exe filter=lfs diff=lfs merge=lfs -text
+bin/cupel-macos filter=lfs diff=lfs merge=lfs -text
