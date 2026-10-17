@@ -1,0 +1,33 @@
+{
+  "identifier": "ca.cupel.app.test",
+  "build": {
+    "beforeBuildCommand": "node scripts/build-test.mjs"
+  },
+  "app": {
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:18814",
+      "capabilities": [
+        {
+          "identifier": "test",
+          "description": "The test variant of the app (tests/e2e/exe.e2e.mjs): the same permissions as default, with the stand-in API on 127.0.0.1:18814 in place of cupel's, and a data folder of its own (ca.cupel.app.test). Never part of a release: tauri.conf.json names `default` alone.",
+          "windows": [
+            "main"
+          ],
+          "permissions": [
+            "core:default",
+            "fs:allow-appdata-read-recursive",
+            "fs:allow-appdata-write-recursive",
+            {
+              "identifier": "http:default",
+              "allow": [
+                {
+                  "url": "http://127.0.0.1:18814/api/v1/*"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

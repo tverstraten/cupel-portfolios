@@ -1,0 +1,187 @@
+openapi: "3.1.0"
+info:
+  title: Cupel App API
+  version: "1"
+  description: >
+    The routes cupel-portfolios (the Tauri app) calls on cupel's web server.
+    The authoritative source of this file is the cupel repository
+    (tverstraten/cupel, web/api/openapi.yaml); this copy is kept in sync
+    and consumed by the app's build and tests.
+  contact:
+    url: https://github.com/tverstraten/cupel-portfolios
+
+servers:
+  - url: "{base}/api/v1"
+    variables:
+      base:
+        default: http://127.0.0.1:8814
+        description: The API origin (VITE_CUPEL_API when built)
+
+paths:
+  /app/login:
+    post:
+      operationId: appLogin
+      summary: Ask cupel to begin a sign-in for this app
+      description: >
+        The app calls this with no body. cupel returns a login id, a shared
+        check code, a secret (stays in the app), and the URL the app opens
+        in the person's browser. The app trusts the URL only when it is on
+        cupel's own site at /app/signin?login={login_id}.
+      responses:
+        "201":
+          description: Sign-in started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [login_id, secret, check, url, expires_in]
+                properties:
+                  login_id:  { type: string, pattern: "^[0-9a-f]{32}$" }
+                  secret:    { type: string }
+                  check:     { type: string, description: Short code shown by the app and the sign-in page }
+                  url:       { type: string, format: uri, description: Open this in the person's browser }
+                  expires_in: { type: integer, description: Seconds until this sign-in expires }
+        "503":
+          description: Sign-in is not open on this server (CUPEL_SITE_URL not set)
+
+  /app/login/take:
+    post:
+      operationId: appLoginTake
+      summary: Poll for the sign-in result
+      description: >
+        The app calls this with the secret from /app/login. Returns 202 with
+        {pending:true} until the person has approved; then, once, 200 with the
+        install token. 401 when the sign-in has expired or been used.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [secret]
+              properties:
+                secret: { type: string }
+      responses:
+        "202":
+          description: Not yet approved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pending]
+                properties:
+                  pending: { type: boolean, enum: [true] }
+        "200":
+          description: Approved — install token issued (returned once only)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [install_token, email, country, region]
+                properties:
+                  install_token: { type: string }
+                  email:   { type: string, format: email }
+                  country: { type: string, enum: [CA, US] }
+                  region:  { type: string, description: Province or state code }
+        "401":
+          description: Sign-in expired or already used
+
+  /app/logout:
+    post:
+      operationId: appLogout
+      summary: Sign the app out; its token is revoked
+      security:
+        - installToken: []
+      responses:
+        "200":
+          description: Signed out
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [signed_out]
+                properties:
+                  signed_out: { type: boolean }
+
+  /releases/current:
+    get:
+      operationId: releaseCurrent
+      summary: The current release manifest
+      security:
+        - installToken: []
+      responses:
+        "200":
+          description: Current release manifest
+          headers:
+            Cache-Control:
+              schema: { type: string }
+              example: "private, max-age=60"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Manifest"
+        "401":
+          description: Not signed in (token missing or revoked)
+        "404":
+          description: No release yet
+
+  /releases/{id}/parts/{part}:
+    get:
+      operationId: releasePart
+      summary: One part of a release (Parquet binary)
+      security:
+        - installToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: part
+          in: path
+          required: true
+          schema: { type: string }
+          description: Part name from the manifest (e.g. runs.parquet, fx.parquet)
+      responses:
+        "200":
+          description: Part bytes
+          headers:
+            X-SHA256:
+              schema: { type: string }
+              description: Hex SHA-256 of the body; the app checks this against the manifest
+            Cache-Control:
+              schema: { type: string }
+              example: "private, max-age=31536000, immutable"
+          content:
+            application/vnd.apache.parquet:
+              schema: { type: string, format: binary }
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401":
+          description: Not signed in
+        "404":
+          description: Release or part not found
+
+components:
+  securitySchemes:
+    installToken:
+      type: http
+      scheme: bearer
+      description: The install token returned by /app/login/take
+
+  schemas:
+    Manifest:
+      type: object
+      required: [release_id, as_of, rating_method, parts]
+      properties:
+        release_id:    { type: integer }
+        as_of:         { type: string, format: date, description: Data is valid as of this date }
+        rating_method: { type: string }
+        parts:
+          type: array
+          items:
+            type: object
+            required: [part, sha256, bytes]
+            properties:
+              part:   { type: string, description: Path to pass to /releases/{id}/parts/{part} }
+              sha256: { type: string, description: Hex SHA-256 of the part's bytes }
+              bytes:  { type: integer }

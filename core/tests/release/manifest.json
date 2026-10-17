@@ -1,0 +1,36 @@
+{
+ "format": 1,
+ "release_id": 1,
+ "as_of": "2025-12-31",
+ "rating_method": "fixture",
+ "made_at": "2026-10-05 00:00:00",
+ "base_release": null,
+ "runs": 8,
+ "parts": [
+  {
+   "part": "runs.parquet",
+   "sha256": "db6aea2e8cb5bde4ed47b1ac2c32ca55dd799fa8f794133d5596104b7ca2bc94",
+   "bytes": 6068
+  },
+  {
+   "part": "equity/0000101-0000204.parquet",
+   "sha256": "611aa8bf98ea9e5f8002dda2ff9cdeb65e0b4b240992c3901c752a5c1588ef49",
+   "bytes": 380886
+  },
+  {
+   "part": "fx.parquet",
+   "sha256": "4f364d0f4a548c9f60d4db95c5f058ba728efb228dc2dbf3d512d7b67add61d8",
+   "bytes": 53866
+  },
+  {
+   "part": "margin_rate.parquet",
+   "sha256": "17cca82aef1f88433b3316fa3a993083848a6035c2b5eba0ea94adba3209dab9",
+   "bytes": 7114
+  },
+  {
+   "part": "reference.json",
+   "sha256": "b49114301799f56699d705ab0f2fd26f6766d59634cb004512151211603e2bba",
+   "bytes": 2379
+  }
+ ]
+}

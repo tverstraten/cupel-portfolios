@@ -1,0 +1,139 @@
+[
+ {
+  "book": {
+   "accounts": [
+    {
+     "balance": 400000,
+     "name": "RRSP",
+     "type": "RRSP",
+     "usd": 150000
+    },
+    {
+     "balance": 100000,
+     "name": "TFSA",
+     "type": "TFSA"
+    },
+    {
+     "balance": 80000,
+     "name": "Margin",
+     "type": "MARGIN"
+    }
+   ],
+   "buying_power": 300000,
+   "collateral": [
+    "Margin",
+    "TFSA"
+   ],
+   "country": "CA",
+   "holdings": [
+    {
+     "lever": false,
+     "run": 101,
+     "sleeve": "CAD",
+     "weight": 0.25
+    },
+    {
+     "lever": false,
+     "run": 102,
+     "sleeve": "CAD",
+     "weight": 0.2
+    },
+    {
+     "lever": false,
+     "run": 103,
+     "sleeve": "CAD",
+     "weight": 0.15344827586206894
+    },
+    {
+     "lever": true,
+     "run": 104,
+     "sleeve": "CAD",
+     "weight": 0.1
+    },
+    {
+     "lever": true,
+     "run": 102,
+     "sleeve": "CAD",
+     "weight": 0.08
+    },
+    {
+     "lever": false,
+     "run": 201,
+     "sleeve": "USD",
+     "weight": 0.15
+    },
+    {
+     "lever": false,
+     "run": 202,
+     "sleeve": "USD",
+     "weight": 0.10862068965517244
+    }
+   ],
+   "inflation": 0.02,
+   "margin": "on",
+   "rebalance": "M",
+   "ruin": 0.05,
+   "years": 30
+  },
+  "expect": {
+   "cagr": 0.13638654093775981,
+   "final": 4414202.764109024,
+   "max_drawdown": 0.10455197637009883,
+   "sortino": 2.2102690224785504,
+   "withdrawal": 0.08342356937280893,
+   "withdrawal_flat": 0.09799766345220318
+  },
+  "name": "a Canadian household with a margin account"
+ },
+ {
+  "book": {
+   "accounts": [
+    {
+     "balance": 300000,
+     "name": "IRA",
+     "type": "IRA"
+    },
+    {
+     "balance": 100000,
+     "name": "Roth",
+     "type": "ROTH_IRA"
+    }
+   ],
+   "country": "US",
+   "holdings": [
+    {
+     "lever": false,
+     "run": 201,
+     "sleeve": "USD",
+     "weight": 0.5
+    },
+    {
+     "lever": false,
+     "run": 202,
+     "sleeve": "USD",
+     "weight": 0.3
+    },
+    {
+     "lever": false,
+     "run": 203,
+     "sleeve": "USD",
+     "weight": 0.2
+    }
+   ],
+   "inflation": 0.025,
+   "margin": "off",
+   "rebalance": "Q",
+   "ruin": 0.05,
+   "years": 25
+  },
+  "expect": {
+   "cagr": 0.14000705517755874,
+   "final": 3154059.1494087926,
+   "max_drawdown": 0.24314393138901436,
+   "sortino": 1.8406974711119355,
+   "withdrawal": 0.07327616190631212,
+   "withdrawal_flat": 0.08917571039684256
+  },
+  "name": "a US household, quarterly"
+ }
+]

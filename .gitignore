@@ -1,0 +1,8 @@
+node_modules/
+dist/
+public/pyodide/
+public/core/
+src-tauri/target/
+src-tauri/gen/
+core/cupel_core/__pycache__/
+core/tests/__pycache__/
