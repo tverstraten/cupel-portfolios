@@ -46,7 +46,11 @@ npm run test:e2e                 # the app's screens in Edge (needs the test bui
 
 ## The API
 
-The app calls cupel's API at the routes documented in [`openapi.yaml`](openapi.yaml). That file is the authoritative spec, maintained here and consumed by the build and tests.
+The app calls the routes documented in [`openapi.yaml`](openapi.yaml). The spec is **driven and published by cupel** (`tverstraten/cupel`, `web/api/openapi.yaml`, served at `GET /api/v1/openapi.yaml`). The copy here is fetched from cupel:
+
+```
+npm run fetch-spec   # requires cupel's web server to be up
+```
 
 The two addresses the app knows, fixed when it is built (`src/lib/flags.js`):
 - The API's base (`VITE_CUPEL_API`, default `http://127.0.0.1:8814`)

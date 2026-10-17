@@ -6,6 +6,7 @@
   "description": "Cupel, the user's application: books of strategies evaluated and optimized on the user's own machine",
   "scripts": {
     "runtime": "node scripts/fetch-pyodide.mjs && node scripts/bundle-core.mjs",
+    "fetch-spec": "node scripts/fetch-spec.mjs",
     "dev": "vite",
     "build": "node scripts/bundle-core.mjs && vite build",
     "test": "node --test tests/*.test.mjs",
