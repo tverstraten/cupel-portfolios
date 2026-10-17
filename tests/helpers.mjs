@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const APP = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-export const ROOT = path.resolve(APP, "..");
+export const ROOT = APP;
 export const FIXTURE = path.join(ROOT, "core", "tests", "release");
 export const EXPECTED = JSON.parse(fs.readFileSync(path.join(ROOT, "core", "tests", "expected.json"), "utf8"));
 

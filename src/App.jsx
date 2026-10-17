@@ -11,7 +11,7 @@ import { openInBrowser } from "./lib/browser.js";
 import { startCore } from "./lib/core.js";
 import { releaseFromFolder } from "./lib/flatfile.js";
 import { API, OPTIMIZER, SITE } from "./lib/flags.js";
-import { inHand, readParts, update } from "./lib/release.js";
+import { checkManifest, inHand, readParts, update } from "./lib/release.js";
 import { inTauri, openStore } from "./lib/store.js";
 import { LANGUAGES, formats, systemLanguage, translator } from "./lib/strings.js";
 import { Fan, Line } from "./Charts.jsx";
@@ -78,6 +78,7 @@ export default function App() {
     if (!files.length) return;
     try {
       const { manifest, parts } = await releaseFromFolder(files);
+      checkManifest(manifest);
       const id = manifest.release_id;
       for (const [name, bytes] of parts) {
         await store.current.writeBytes(`releases/${id}/${name}`, bytes);

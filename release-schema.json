@@ -108,9 +108,9 @@
           "type": "string",
           "description": "Rating letter, e.g. 'A', 'B' (utf8; optional)."
         },
-        "evidence": {
+        "evidence_status": {
           "type": "string",
-          "description": "Evidence level label shown in the catalogue (utf8; optional)."
+          "description": "Evidence status label shown in the catalogue, e.g. 'conclusive', 'inconclusive' (utf8; optional)."
         }
       },
       "required": ["run_id", "name", "sleeve", "cagr"]
@@ -123,7 +123,7 @@
       "properties": {
         "run_id": {
           "type": "integer",
-          "description": "Run identifier (int64). Groups rows for the same run together."
+          "description": "Run identifier (int32 or int64). Groups rows for the same run together."
         },
         "day": {
           "type": "string",
