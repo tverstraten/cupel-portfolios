@@ -164,10 +164,10 @@ Shows the signed-in profile (email and region) and a **Sign out** button. In off
 
 ### Download and run (no build required)
 
-Pre-built installers are published with each release on the [Releases page](../../releases). No Node, Python, or Rust required.
+The latest builds live in the [`bin/`](bin/) folder of this repository. No Node, Python, or Rust required.
 
-- **Windows** — download `cupel-windows.exe` and run it
-- **macOS** — download `cupel-macos.dmg`, open it, and drag Cupel to Applications. On first launch, right-click the app and choose **Open** to bypass Gatekeeper (the builds are unsigned)
+- **Windows** — download [`bin/cupel-windows.exe`](bin/cupel-windows.exe) and run it
+- **macOS** — download [`bin/cupel-macos.dmg`](bin/cupel-macos.dmg), open it, and drag Cupel to Applications. On first launch, right-click the app and choose **Open** to bypass Gatekeeper (the builds are unsigned)
 
 To try it without a cupel account, click **Open data folder** on the sign-in screen and select the `sample/` folder from this repository.
 
