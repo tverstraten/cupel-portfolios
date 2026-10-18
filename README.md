@@ -1,20 +1,53 @@
 # cupel-portfolios
 
-A desktop portfolio tool for DIY investors. You enter your accounts, pick strategies from the catalogue, set weights, and the app works out the numbers — withdrawal rate, growth, drawdowns, Monte Carlo fan — on your own machine. Your balances and holdings are never sent anywhere.
+A desktop portfolio tool for DIY investors. You enter your accounts, pick strategies from the catalogue, set weights, and the app works out the numbers — withdrawal rate, growth, drawdowns, Monte Carlo fan — on your own machine. Your balances and holdings are never sent anywhere. It runs locally because the analysis it does would be regulated as investment advice if delivered over a web service — see [Why desktop, not a web app?](#why-desktop-not-a-web-app) below.
 
 Built on [Tauri 2](https://tauri.app) + React, with the calculations running in Python ([Pyodide](https://pyodide.org)) inside a Web Worker. English and French. Windows (NSIS installer) and macOS (DMG).
 
 ---
 
+## Why desktop, not a web app?
+
+The specific capabilities this app delivers — growth analysis showing what your combined allocation has actually compounded to, personalised withdrawal-rate modelling against your actual holdings, Monte Carlo simulation of long-term outcomes, and portfolio-weight optimisation toward a financial objective you set — cross a line that financial regulators draw carefully.
+
+If those same calculations were run server-side on data you submitted, and the results were returned to you over the web, the operator of that service would likely need to be a **registered investment adviser or portfolio manager** in any jurisdiction where you live:
+
+- **Canada** — delivering personalised portfolio analysis and retirement modelling to retail clients triggers registration requirements under provincial securities legislation (OSC, AMF, BCSC, and equivalents). The threshold is low: providing analysis or recommendations about the composition of a client's portfolio is regulated activity whether it comes from a person or an algorithm.
+- **United States** — the Investment Advisers Act of 1940 requires SEC registration for anyone who provides investment advice for compensation; state-level laws cover smaller operators. An application that models your retirement portfolio and finds optimal weights for your holdings is doing the work of a registered investment adviser.
+- **European Union** — MiFID II imposes authorisation requirements on firms providing "investment advice" — defined as a recommendation tailored to a specific client's circumstances. Personalised withdrawal-rate analysis and portfolio optimisation fit that definition.
+
+A web service that takes your balances, shows you how your combined portfolio has grown, models your long-term horizon, finds the allocation that maximises your compound growth or sustainable withdrawal rate, and identifies which holdings are contributing or dragging is doing the work of a licensed financial planner. The fact that the output is produced by mathematics rather than a human adviser does not remove it from regulation.
+
+**As a local desktop tool, the picture is different.** The app is a calculator you run yourself, on your own data, for your own use. No advice is being provided from one party to another. The operator of this software is not your financial adviser; this app does not constitute financial advice; and nothing the app produces should be taken as a recommendation to buy, sell, or hold any security. Where your circumstances warrant it, consult a licensed professional.
+
+This is the primary reason this is a desktop application and not a web service.
+
+---
+
 ## Why would I use this?
 
-A DIY investor managing their own accounts faces a problem that spreadsheets handle badly and that wealth-management software either doesn't expose or locks behind a fee: **how do I know whether my current holdings, across all my accounts, are actually working — and will they last?**
+A DIY investor managing their own accounts faces two problems that spreadsheets handle badly and that wealth-management software either doesn't expose or locks behind a fee.
 
-This app answers a concrete version of that question.
+The first is a growth question: **is my combined portfolio actually compounding as efficiently as it should, given how my holdings interact across accounts?** Individual strategy performance is easy to look up; the combined result — accounting for correlations, weights, tax drag, and account-type constraints — is not.
+
+The second is a sustainability question, most relevant to anyone drawing or approaching income: **will it last?**
+
+This app answers both.
+
+### Portfolio growth
+
+The combined CAGR of your portfolio is the primary number for an investor in the accumulation phase. Each strategy has its own historical CAGR; the combined portfolio has a different one that depends on weights, how strategies correlate, and how they compound together over time. The app computes this at the portfolio level — not as a weighted average of individual CAGRs, which ignores correlation, but as the actual compounded return of the combined allocation over the data history.
+
+- **Combined CAGR** — the true compound annual growth rate of your full portfolio, across all pools and strategies, over the data history
+- **Sortino ratio** — a measure of growth quality: how much of the return came from upside rather than compensating for downside volatility. A high Sortino means the portfolio grew efficiently; a low one means a lot of the return was earned by recovering from losses
+- **Equity curve** — what $1 invested in this exact allocation at the start of the data history would be worth today. The shape matters: a curve that rises steadily to a given endpoint differs from one that hits the same endpoint after a deep trough
+- **Per-strategy contribution** — the holdings table breaks down each strategy's share of the combined CAGR and Sortino, so you can see which holdings are doing the growth work and which are diluting it
+
+The optimizer can search for the weights that maximise CAGR within a drawdown limit you set — useful when you have a specific loss tolerance and want to know whether the allocation you've chosen is the most efficient way to achieve it.
 
 ### Withdrawal sustainability
 
-The central number is **sustainable withdrawal rate**: what annual percentage of your portfolio can you take out, starting now, and still expect the portfolio to outlast you? The simulation draws from the portfolio's own historical monthly returns — not a generic capital-market assumption — and shows a fan of outcomes at the 5th, 25th, 50th, 75th, and 95th percentiles over a 30-year horizon. The 5th-percentile line is the pessimistic case; the 50th is the median. If your actual withdrawal rate is above the 5th-percentile fan at year 30, you're taking on meaningful sequence-of-returns risk.
+For an investor drawing income, the central number is **sustainable withdrawal rate**: what annual percentage of your portfolio can you take out, starting now, and still expect the portfolio to outlast you? The simulation draws from the portfolio's own historical monthly returns — not a generic capital-market assumption — and shows a fan of outcomes at the 5th, 25th, 50th, 75th, and 95th percentiles over a 30-year horizon. The 5th-percentile line is the pessimistic case; the 50th is the median. If your actual withdrawal rate is above the 5th-percentile fan at year 30, you're taking on meaningful sequence-of-returns risk.
 
 ### Historical performance
 
@@ -100,14 +133,14 @@ Click **Evaluate** (or it runs automatically after loading a book) to send your 
 
 | Metric | What it tells you |
 |--------|------------------|
-| Withdrawal rate | The annual percentage of your starting balance you can take out and still, at the median, have money left after 30 years. The number in the tile is the 50th-percentile result. |
-| Final balance | Median portfolio value at year 30, as a multiple of the starting balance. |
-| CAGR | Compound annual growth rate of the combined portfolio over the history in the release. |
-| Sortino | Downside-risk-adjusted return. Higher is better; 1.0 is roughly market-average risk-adjusted performance. |
+| CAGR | Compound annual growth rate of the combined portfolio over the data history — the primary number for an investor in the accumulation phase. |
+| Sortino | Downside-risk-adjusted return; measures growth quality. Higher is better; 1.0 is roughly market-average risk-adjusted performance. A high Sortino means the portfolio compounded efficiently with limited downside drag. |
 | Max drawdown | The worst peak-to-trough loss on record. |
 | Underwater | The number of calendar days spent below the previous peak during the worst drawdown. |
+| Withdrawal rate | The annual percentage of your starting balance you can take out and still, at the median, have money left after 30 years — the primary number for an investor drawing income. The tile shows the 50th-percentile result. |
+| Final balance | Median portfolio value at year 30, as a multiple of the starting balance. |
 
-**Monte Carlo fan.** A chart showing the distribution of 30-year outcomes. The five lines are the 5th, 25th, 50th, 75th, and 95th percentiles. The simulation resamples the portfolio's own historical monthly returns. A fan where the 5th-percentile line stays above zero at year 30 means the portfolio has never, historically, produced a sequence of returns that would exhaust the balance at your withdrawal rate. A fan where the 5th-percentile line crosses zero before year 30 means some historical sequences would.
+**Monte Carlo fan.** A chart showing the distribution of 30-year outcomes. The five lines are the 5th, 25th, 50th, 75th, and 95th percentiles. The simulation resamples the portfolio's own historical monthly returns. For an investor in the accumulation phase, the fan shows the range of compounding trajectories: the 50th-percentile line is the median growth path; the 95th is the optimistic case; the 5th is the worst historical sequence of returns. For an investor drawing income, a fan where the 5th-percentile line stays above zero at year 30 means the portfolio has never, historically, produced a sequence of returns that would exhaust the balance at your withdrawal rate; a fan where the 5th-percentile line crosses zero before year 30 means some historical sequences would.
 
 **Equity curve.** The combined portfolio's historical cumulative return — what $1 invested in this mix at the start of the data history would be worth over time.
 
@@ -127,9 +160,9 @@ It finds the holding weights that best achieve one goal, subject to the constrai
 
 | Mode | What it maximises |
 |------|------------------|
-| Max withdrawal | The 50th-percentile sustainable annual withdrawal rate — the most relevant objective for a retiree drawing income |
-| Max Sortino | Risk-adjusted return, penalising downside volatility — good when capital preservation matters as much as growth |
-| Max CAGR, capped drawdown | Compound annual growth, subject to a maximum-drawdown constraint you set — useful when you have a specific loss tolerance |
+| Max CAGR, capped drawdown | Compound annual growth, subject to a maximum-drawdown constraint you set — the primary objective for an investor in the accumulation phase |
+| Max withdrawal | The 50th-percentile sustainable annual withdrawal rate — the primary objective for an investor drawing income |
+| Max Sortino | Risk-adjusted return, penalising downside volatility — useful when growth quality and capital preservation matter as much as raw return |
 | Equal weights | Sets all weights to 1/N within each pool — a neutral sanity baseline to compare the optimised result against |
 
 The search runs entirely on your machine in the Python core. For a book with many strategies across multiple pools it can take a few minutes. When it finishes, the results are written back into the Portfolio screen as revised weights; you can inspect, adjust, and save the book.
