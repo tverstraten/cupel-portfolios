@@ -95,7 +95,7 @@ Two ways to get one:
 
 ### 1. Sign in with a cupel account
 
-[Cupel](https://github.com/tverstraten/cupel) is the companion service that produces the strategy data. A cupel account is what gives you API access to that data. Sign in inside the app: your browser opens cupel's sign-in page, you approve the app there, and the app can then retrieve the current release from the API. It checks for newer data each time it starts. No account credentials are typed into the app; nothing about your money reaches cupel.
+[Cupel](https://cupelratings.com) is the companion service that produces the strategy data. A cupel account is what gives you API access to that data. Sign in inside the app: your browser opens [cupelratings.com/app/signin](https://cupelratings.com/app/signin), you approve the app there, and the app can then retrieve the current release from the API. It checks for newer data each time it starts. No account credentials are typed into the app; nothing about your money reaches cupel.
 
 ### 2. Open a local data folder
 
@@ -360,13 +360,13 @@ The two addresses the app encodes at build time (`src/lib/flags.js`):
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `VITE_CUPEL_API` | `http://127.0.0.1:8814` | API base URL |
-| `VITE_CUPEL_SITE` | `http://localhost:8814` | Site address the sign-in page is on |
+| `VITE_CUPEL_API` | `https://cupelratings.com` | API base URL |
+| `VITE_CUPEL_SITE` | `https://cupelratings.com` | Site address the sign-in page is on |
 
-Pass them as environment variables when building:
+Production builds use the defaults above. To build against a local instance, override them:
 
 ```sh
-VITE_CUPEL_API=https://your.cupel.host VITE_CUPEL_SITE=https://your.cupel.host npm run build:exe
+VITE_CUPEL_API=http://127.0.0.1:8814 VITE_CUPEL_SITE=http://localhost:8814 npm run build:exe
 ```
 
 The API routes the app calls are documented in [`openapi.yaml`](openapi.yaml). The spec is the authoritative copy from `tverstraten/cupel` and can be refreshed with `npm run fetch-spec` when cupel's server is running.
@@ -380,6 +380,14 @@ The API routes the app calls are documented in [`openapi.yaml`](openapi.yaml). T
 | `VITE_CUPEL_OPTIMIZER` | `on` | Enables the Optimize screen |
 | `VITE_CUPEL_REFERRAL` | `on` | Enables the referral/adviser screen (not yet in use) |
 | `VITE_CUPEL_BROWSER` | `off` | Disables auto-opening the sign-in URL (used by the test exe) |
+
+---
+
+## Supporting the project
+
+Cupel is a small independent service. The financial data it runs on is expensive. If you use the free side and find it useful, pitching in helps cover the costs:
+
+**[Support the data on Polar ↗](https://buy.polar.sh/polar_cl_vtDg4g47RyXlwNtmpG1UxZF3uKxnk7iGvoR87336iKx)**
 
 ---
 

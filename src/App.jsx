@@ -10,7 +10,7 @@ import { exportBook, fitToPools, fromPool, importBook, newBook, poolKey, poolTot
 import { openInBrowser } from "./lib/browser.js";
 import { startCore } from "./lib/core.js";
 import { storeFromFolder } from "./lib/foldersource.js";
-import { API, OPTIMIZER, SITE } from "./lib/flags.js";
+import { API, DONATION_URL, OPTIMIZER, SITE } from "./lib/flags.js";
 import { inHand, readParts, update } from "./lib/release.js";
 import { inTauri, openStore } from "./lib/store.js";
 import { LANGUAGES, formats, systemLanguage, translator } from "./lib/strings.js";
@@ -337,6 +337,8 @@ function Account({ t, profile, signOut }) {
       <p data-testid="signed-in">{t("account.as", { email: profile.email, region: profile.region })}</p>
       <p className="mute">{t("account.kept")}</p>
       <button onClick={signOut} data-testid="signout">{t("account.signout")}</button>
+      <p className="mute" style={{ marginTop: "1.5em" }}>{t("account.support")}{" "}
+        <a href={DONATION_URL} target="_blank" rel="noopener noreferrer">{t("account.supportLink")}</a></p>
     </section>
   );
 }

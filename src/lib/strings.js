@@ -36,6 +36,8 @@ export const STRINGS = {
     "account.as": "Signed in as {email}, {region}.",
     "account.kept": "Signing out removes the sign-in from this machine. Your portfolios and the data stay here.",
     "account.signout": "Sign out",
+    "account.support": "Cupel is a small independent service. The financial data it runs on is expensive. If you find it useful, pitching in helps cover the costs.",
+    "account.supportLink": "Support on Polar ↗",
     "country.CA": "Canada", "country.US": "United States",
 
     "data.title": "Data",
@@ -141,6 +143,8 @@ export const STRINGS = {
     "account.as": "Connecté : {email}, {region}.",
     "account.kept": "La déconnexion retire la connexion de cet ordinateur. Vos portefeuilles et les données restent ici.",
     "account.signout": "Se déconnecter",
+    "account.support": "Cupel est un petit service indépendant. Les données financières sur lesquelles il repose sont coûteuses. Si vous le trouvez utile, participer aide à en couvrir les frais.",
+    "account.supportLink": "Soutenir sur Polar ↗",
     "country.CA": "Canada", "country.US": "États-Unis",
 
     "data.title": "Données",

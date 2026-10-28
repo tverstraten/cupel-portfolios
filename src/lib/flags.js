@@ -7,17 +7,19 @@
 export const OPTIMIZER = import.meta.env.VITE_CUPEL_OPTIMIZER === "on";
 export const REFERRAL = import.meta.env.VITE_CUPEL_REFERRAL === "on";
 
-// cupel's API: the only place the app ever asks anything of (src/lib/api.js). Fixed when the app is built. Until the
-// site has a public address (OPPORTUNITY-PLAN-GENERAL.md 2.3) it is the site on this machine.
-export const API = import.meta.env.VITE_CUPEL_API || "http://127.0.0.1:8814";
+// cupel's API: the only place the app ever asks anything of (src/lib/api.js). Fixed when the app is built.
+// Production is https://cupelratings.com; override with VITE_CUPEL_API to build against a local instance.
+export const API = import.meta.env.VITE_CUPEL_API || "https://cupelratings.com";
 
 // cupel's site as a person's browser reaches it: where the sign-in page is, and where Google signs them in (a
-// browser's session is the host's, so this is the address the site itself gives its links: on this machine
-// `localhost`, not 127.0.0.1). The app opens the sign-in page there and nowhere else (src/lib/api.js; the program's
-// permissions). Once the site is hosted this and the API are one address.
-export const SITE = import.meta.env.VITE_CUPEL_SITE || "http://localhost:8814";
+// browser's session is the host's, so this is the address the site itself gives its links). The app opens the
+// sign-in page there and nowhere else (src/lib/api.js; the program's permissions).
+export const SITE = import.meta.env.VITE_CUPEL_SITE || "https://cupelratings.com";
 
 // Whether the sign-in page is opened in the person's browser by the app itself (src/lib/browser.js). On in every
 // build but the test variant of the program, whose tests must not open a browser on the machine they run on: there
 // the link is shown and the test opens nothing.
 export const BROWSER = import.meta.env.VITE_CUPEL_BROWSER !== "off";
+
+// Polar donation link — shown on the Account screen. Not a build-time override: it is a fixed product URL.
+export const DONATION_URL = "https://buy.polar.sh/polar_cl_vtDg4g47RyXlwNtmpG1UxZF3uKxnk7iGvoR87336iKx";

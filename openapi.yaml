@@ -14,8 +14,8 @@ servers:
   - url: "{base}/api/v1"
     variables:
       base:
-        default: http://127.0.0.1:8814
-        description: The API origin (VITE_CUPEL_API when built)
+        default: https://cupelratings.com
+        description: The API origin (VITE_CUPEL_API when built; production is https://cupelratings.com)
 
 paths:
   /app/login:
